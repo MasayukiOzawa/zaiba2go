@@ -7,7 +7,7 @@ SELECT
 FROM
 (
 	SELECT
-		@@SERVERNAME AS servername,
+		@@SERVERNAME AS server_name,
 		COALESCE(SERVERPROPERTY('InstanceName'), 'MSSQLSERVER') AS sql_instance_name,
 		DB_NAME() AS database_name,
 		RTRIM(
@@ -58,5 +58,5 @@ OPTION (RECOMPILE, MAXDOP 1);
 `
 
 func queryList() []string {
-	return []string{queryPerfInfo}
+	return []string{queryPerfInfo, queryFileStats}
 }

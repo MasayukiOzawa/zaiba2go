@@ -1,25 +1,27 @@
 package main
 
 import (
-	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
 
 	_ "github.com/denisenkom/go-mssqldb"
+	"github.com/jmoiron/sqlx"
 )
 
 const timeFormat = "2006-01-02 15:04:05.000"
 
-var db *sql.DB
+var db *sqlx.DB
 var wg sync.WaitGroup
 var influxdbURI string
 var config *Zaiba2Config
+var applicationIntent string
 
 type zaiba2Error struct {
 	message string
@@ -86,8 +88,8 @@ func doMain() error {
 		*config.influxdbName,
 	)
 
-	// SQL Servfer のドライバーのオープン
-	db, err = sql.Open("sqlserver", constring)
+	// SQL Server 用のドライバーで初期化
+	db, err = sqlx.Open("sqlserver", constring)
 	if err != nil {
 		zaiba2Err.message = fmt.Sprintf("SQL Open Error : %s", err.Error())
 		return zaiba2Err
@@ -103,16 +105,20 @@ func doMain() error {
 
 	// メトリクスの取得
 	query := queryList()
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	applicationIntent = "application_intent=" + (*config.applicationintent)
+
 	for {
 		select {
 		// Ctrl + C が押された場合の終了処理
 		case <-c1:
-			wg.Wait()
 			fmt.Printf("[%v] : Received Stop Signal\n", time.Now().Format(timeFormat))
+			wg.Wait()
 			return nil
 		default:
 			wg.Add(len(query))
-			go execPerfInfo(&query[0])
+			go getPerfinfo(&query[0])
+			go getFileStats(&query[1])
 			wg.Wait()
 			time.Sleep(time.Second * 5)
 		}
