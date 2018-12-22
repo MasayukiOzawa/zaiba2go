@@ -117,8 +117,11 @@ func doMain() error {
 			return nil
 		default:
 			wg.Add(len(query))
-			go getPerfinfo(&query[0])
-			go getFileStats(&query[1])
+			go getMeasurement(&query[0], new(perfStruct))
+			go getMeasurement(&query[1], new(fileStruct))
+			go getMeasurement(&query[2], new(cpuStruct))
+			go getMeasurement(&query[3], new(memoryStruct))
+
 			wg.Wait()
 			time.Sleep(time.Second * 5)
 		}
