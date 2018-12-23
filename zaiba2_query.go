@@ -1,7 +1,9 @@
 package main
 
+/*************************************************************************/
+// 実行対象のクエリ リストの作成
+/*************************************************************************/
 func queryList() []string {
-
 	var query []string
 	// Azure SQL DB 向けのクエリセット
 	if *config.azuresqldb == true {
@@ -32,6 +34,7 @@ func queryList() []string {
 
 /*************************************************************************/
 // パフォーマンスモニター
+/*************************************************************************/
 type structPerfInfo struct {
 	Measurement     string  `db:"measurement" type:"measurement"`
 	ServerName      string  `db:"server_name" type:"tag"`
@@ -75,6 +78,7 @@ OPTION (RECOMPILE, MAXDOP 1);
 
 /*************************************************************************/
 // ファイル I/O
+/*************************************************************************/
 type structFileStats struct {
 	Measurement       string  `db:"measurement" type:"measurement"`
 	ServerName        string  `db:"server_name" type:"tag"`
@@ -120,6 +124,7 @@ OPTION (RECOMPILE, MAXDOP 1);
 
 /*************************************************************************/
 // CPU 使用状況
+/*************************************************************************/
 type structCPUUsage struct {
 	Measurement     string  `db:"measurement" type:"measurement"`
 	ServerName      string  `db:"server_name" type:"tag"`
@@ -171,6 +176,7 @@ OPTION(RECOMPILE, MAXDOP 1);
 
 /*************************************************************************/
 // メモリクラーク
+/*************************************************************************/
 type structMemoryClerk struct {
 	Measurement     string  `db:"measurement" type:"measurement"`
 	ServerName      string  `db:"server_name" type:"tag"`
@@ -215,6 +221,7 @@ EXECUTE(@sql);
 
 /*************************************************************************/
 // ワーカースレッド
+/*************************************************************************/
 type structWorkerThread struct {
 	Measurement         string  `db:"measurement" type:"measurement"`
 	ServerName          string  `db:"server_name" type:"tag"`
@@ -267,6 +274,7 @@ OPTION (RECOMPILE, MAXDOP 1);
 
 /*************************************************************************/
 // Wait Task
+/*************************************************************************/
 type structWaitTask struct {
 	Measurement               string  `db:"measurement" type:"measurement"`
 	ServerName                string  `db:"server_name" type:"tag"`
@@ -313,6 +321,7 @@ OPTION (RECOMPILE, MAXDOP 1)
 
 /*************************************************************************/
 // Wait Stats
+/*************************************************************************/
 type structWaitStats struct {
 	Measurement       string  `db:"measurement" type:"measurement"`
 	ServerName        string  `db:"server_name" type:"tag"`
@@ -386,6 +395,7 @@ OPTION (RECOMPILE, MAXDOP 1);
 
 /*************************************************************************/
 // tempdb
+/*************************************************************************/
 type structTempdb struct {
 	Measurement                  string  `db:"measurement" type:"measurement"`
 	ServerName                   string  `db:"server_name" type:"tag"`

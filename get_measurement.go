@@ -11,7 +11,6 @@ import (
 )
 
 func getMeasurement(sql *string, fields interface{}) {
-
 	// 構造体の名称 (処理対象) の取得
 	typeNameSlice := strings.Split(reflect.TypeOf(fields).String(), ".")
 	typeName := typeNameSlice[len(typeNameSlice)-1]
@@ -19,7 +18,7 @@ func getMeasurement(sql *string, fields interface{}) {
 	// クエリ実行
 	rows, err := db.Queryx(*sql)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("[%v] : SQL Execution Error : %s\n", time.Now().Format(timeFormat), err.Error()))
+		fmt.Println(fmt.Sprintf("[%v] : [%s] : SQL Execution Error : %s\n", time.Now().Format(timeFormat), typeName, err.Error()))
 		wg.Done()
 		return
 	}
@@ -67,9 +66,9 @@ func getMeasurement(sql *string, fields interface{}) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err.Error())
-	} else {
-		fmt.Printf("[%v] : [%s] : Response Status [%s]\n", time.Now().Format(timeFormat), typeName, resp.Status)
+		fmt.Printf("[%v] : [%s] : Post Failed [%s]\n", time.Now().Format(timeFormat), typeName, err.Error())
+	} else if resp.StatusCode != 204 {
+		fmt.Printf("[%v] : [%s] : HTTP Request Failed, Response Status [%s]\n", time.Now().Format(timeFormat), typeName, resp.Status)
 	}
 	wg.Done()
 }

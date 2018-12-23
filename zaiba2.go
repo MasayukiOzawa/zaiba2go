@@ -118,6 +118,7 @@ func doMain() error {
 
 	// メトリクスの取得開始
 	for {
+		fmt.Printf("[%v] : Metric Collect.\n", time.Now().Format(timeFormat))
 		select {
 		// Ctrl + C が押された場合の終了処理
 		case <-cStop:
@@ -125,8 +126,8 @@ func doMain() error {
 			wg.Wait()
 			return nil
 		default:
-			wg.Add(len(query))
 
+			wg.Add(len(query))
 			go getMeasurement(&query[0], new(structPerfInfo))
 			go getMeasurement(&query[1], new(structFileStats))
 			go getMeasurement(&query[2], new(structCPUUsage))
@@ -144,8 +145,8 @@ func doMain() error {
 }
 
 func main() {
-	fmt.Printf("[%v] : Zaiba2 Start\n", time.Now().Format(timeFormat))
-	defer fmt.Printf("[%v] : Zaiba2 Stop\n", time.Now().Format(timeFormat))
+	fmt.Printf("[%v] : Zaiba2 Start.\n", time.Now().Format(timeFormat))
+	defer fmt.Printf("[%v] : Zaiba2 Stop.\n", time.Now().Format(timeFormat))
 
 	err := doMain()
 
