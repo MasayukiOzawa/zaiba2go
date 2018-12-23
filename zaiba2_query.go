@@ -1,11 +1,38 @@
 package main
 
 func queryList() []string {
-	return []string{queryPerfInfo, queryFileStats, queryCPU, queryMemory}
+
+	var query []string
+	// Azure SQL DB 向けのクエリセット
+	if *config.azuresqldb == true {
+		query = []string{
+			queryPerfInfo,
+			queryFileStats,
+			queryCPUUsage,
+			queryMemoryClerk,
+			queryWorkerThreadAzure,
+			queryWaitTask,
+			queryWaitStats,
+			queryTempdb,
+		}
+	} else {
+		query = []string{
+			queryPerfInfo,
+			queryFileStats,
+			queryCPUUsage,
+			queryMemoryClerk,
+			queryWorkerThread,
+			queryWaitTask,
+			queryWaitStats,
+			queryTempdb,
+		}
+	}
+	return query
 }
 
+/*************************************************************************/
 // パフォーマンスモニター
-type perfStruct struct {
+type structPerfInfo struct {
 	Measurement     string  `db:"measurement" type:"measurement"`
 	ServerName      string  `db:"server_name" type:"tag"`
 	SQLInstanceName string  `db:"sql_instance_name" type:"tag"`
@@ -46,8 +73,9 @@ WHERE
 OPTION (RECOMPILE, MAXDOP 1);
 `
 
+/*************************************************************************/
 // ファイル I/O
-type fileStruct struct {
+type structFileStats struct {
 	Measurement       string  `db:"measurement" type:"measurement"`
 	ServerName        string  `db:"server_name" type:"tag"`
 	SQLInstanceName   string  `db:"sql_instance_name" type:"tag"`
@@ -90,8 +118,9 @@ ORDER BY
 OPTION (RECOMPILE, MAXDOP 1);
 `
 
-// CPU
-type cpuStruct struct {
+/*************************************************************************/
+// CPU 使用状況
+type structCPUUsage struct {
 	Measurement     string  `db:"measurement" type:"measurement"`
 	ServerName      string  `db:"server_name" type:"tag"`
 	SQLInstanceName string  `db:"sql_instance_name" type:"tag"`
@@ -100,7 +129,7 @@ type cpuStruct struct {
 	CPUUsage        float64 `db:"CPU_Usage" type:"field"`
 }
 
-const queryCPU = `
+const queryCPUUsage = `
 SELECT
 	'cpustats' AS measurement,
 	server_name,
@@ -140,8 +169,9 @@ PIVOT(
 OPTION(RECOMPILE, MAXDOP 1);
 `
 
-// メモリ
-type memoryStruct struct {
+/*************************************************************************/
+// メモリクラーク
+type structMemoryClerk struct {
 	Measurement     string  `db:"measurement" type:"measurement"`
 	ServerName      string  `db:"server_name" type:"tag"`
 	SQLInstanceName string  `db:"sql_instance_name" type:"tag"`
@@ -151,7 +181,7 @@ type memoryStruct struct {
 	SizeKb          float64 `db:"size_kb" type:"field"`
 }
 
-const queryMemory = `
+const queryMemoryClerk = `
 DECLARE @ProductVersion nvarchar(128) = CAST(SERVERPROPERTY('ProductVersion') AS nvarchar(128))
 DECLARE @MajorVersion int = (SELECT SUBSTRING(@ProductVersion, 1, CHARINDEX('.', @ProductVersion) - 1))
 DECLARE @sql nvarchar(max) = '
@@ -181,4 +211,212 @@ BEGIN
 END
 
 EXECUTE(@sql);
+`
+
+/*************************************************************************/
+// ワーカースレッド
+type structWorkerThread struct {
+	Measurement         string  `db:"measurement" type:"measurement"`
+	ServerName          string  `db:"server_name" type:"tag"`
+	SQLInstanceName     string  `db:"sql_instance_name" type:"tag"`
+	DatabaseName        string  `db:"database_name" type:"tag"`
+	CurrentTasksCount   float64 `db:"current_tasks_count" type:"field"`
+	RunnableTasksCount  float64 `db:"runnable_tasks_count" type:"field"`
+	CurrentWorkersCount float64 `db:"current_workers_count" type:"field"`
+	ActiveWorkersCount  float64 `db:"active_workers_count" type:"field"`
+	WorkQueueCount      float64 `db:"work_queue_count" type:"field"`
+	MaxWorkersCount     float64 `db:"max_workers_count" type:"field"`
+}
+
+const queryWorkerThread = `
+SELECT
+	'workerthread' AS measurement,
+	@@SERVERNAME AS server_name,
+	COALESCE(SERVERPROPERTY('InstanceName'), 'MSSQLSERVER') AS sql_instance_name,
+	DB_NAME() AS database_name,
+	SUM(current_tasks_count) AS current_tasks_count,
+	SUM(runnable_tasks_count) AS runnable_tasks_count,
+	SUM(current_workers_count) AS current_workers_count,
+	SUM(active_workers_count) AS active_workers_count,
+	SUM(work_queue_count) AS work_queue_count,
+	(SELECT max_workers_count FROM sys.dm_os_sys_info) AS max_workers_count
+FROM 
+	sys.dm_os_schedulers WITH(NOLOCK)
+WHERE 
+	status = 'VISIBLE ONLINE'
+OPTION (RECOMPILE, MAXDOP 1);
+`
+const queryWorkerThreadAzure = `
+SELECT
+	'workerthread' AS measurement,
+	@@SERVERNAME AS server_name,
+	COALESCE(SERVERPROPERTY('InstanceName'), 'MSSQLSERVER') AS sql_instance_name,
+	DB_NAME() AS database_name,
+	SUM(current_tasks_count) AS current_tasks_count,
+	SUM(runnable_tasks_count) AS runnable_tasks_count,
+	SUM(current_workers_count) AS current_workers_count,
+	SUM(active_workers_count) AS active_workers_count,
+	SUM(work_queue_count) AS work_queue_count,
+	0 AS max_workers_count
+FROM 
+	sys.dm_os_schedulers WITH(NOLOCK)
+WHERE 
+	status = 'VISIBLE ONLINE'
+OPTION (RECOMPILE, MAXDOP 1);
+`
+
+/*************************************************************************/
+// Wait Task
+type structWaitTask struct {
+	Measurement               string  `db:"measurement" type:"measurement"`
+	ServerName                string  `db:"server_name" type:"tag"`
+	SQLInstanceName           string  `db:"sql_instance_name" type:"tag"`
+	DatabaseName              string  `db:"database_name" type:"tag"`
+	SessionID                 string  `db:"session_id" type:"tag"`
+	Status                    string  `db:"status" type:"tag"`
+	Command                   string  `db:"command" type:"tag"`
+	WaitType                  string  `db:"wait_type" type:"tag"`
+	HostName                  string  `db:"host_name" type:"tag"`
+	ProgramName               string  `db:"program_name" type:"tag"`
+	ElapsedTimeSec            float64 `db:"elapsed_time_sec" type:"field"`
+	TransactionElapsedTimeSec float64 `db:"transaction_elapsed_time_sec" type:"field"`
+}
+
+const queryWaitTask = `
+SELECT
+	'waittask' AS measurement,
+	@@SERVERNAME AS server_name,
+	COALESCE(SERVERPROPERTY('InstanceName'), 'MSSQLSERVER') AS sql_instance_name,
+	DB_NAME() AS database_name, 
+	wt.session_id,
+	COALESCE(er.status, ' ') AS status,
+	COALESCE(er.command, ' ') AS command,
+	COALESCE(er.wait_type, ' ') AS wait_type,
+	COALESCE(es.host_name, ' ') AS host_name,
+	COALESCE(es.program_name, ' ') AS program_name,
+	COALESCE(datediff(SECOND,  er.start_time, GETDATE()), 0) AS elapsed_time_sec,
+	CASE at.transaction_type
+		WHEN 2 THEN 0
+		ELSE COALESCE(datediff(SECOND, at.transaction_begin_time, GETDATE()), 0)
+	END AS transaction_elapsed_time_sec
+FROM
+	sys.dm_os_waiting_tasks AS wt WITH(NOLOCK)
+	LEFT JOIN sys.dm_exec_requests AS er WITH(NOLOCK) ON wt.session_id = er.session_id
+	LEFT JOIN sys.dm_tran_active_transactions AS at WITH(NOLOCK) ON at.transaction_id = er.transaction_id
+	LEFT JOIN sys.dm_exec_sessions AS es WITH(NOLOCK) ON es.session_id = er.session_id
+WHERE
+	wt.session_id > 0
+ORDER BY
+	wt.session_id
+OPTION (RECOMPILE, MAXDOP 1)
+`
+
+/*************************************************************************/
+// Wait Stats
+type structWaitStats struct {
+	Measurement       string  `db:"measurement" type:"measurement"`
+	ServerName        string  `db:"server_name" type:"tag"`
+	SQLInstanceName   string  `db:"sql_instance_name" type:"tag"`
+	DatabaseName      string  `db:"database_name" type:"tag"`
+	WaitCategory      string  `db:"wait_category" type:"tag"`
+	WaitTimeMs        float64 `db:"wait_time_ms" type:"field"`
+	WaitingTasksCount float64 `db:"waiting_tasks_count" type:"field"`
+	MaxWaitTimeMs     float64 `db:"max_wait_time_ms" type:"field"`
+}
+
+const queryWaitStats = `
+;WITH waitcategorystats ( 
+	wait_category, wait_type, wait_time_ms, 
+    waiting_tasks_count, 
+    max_wait_time_ms) 
+AS (
+	SELECT 
+		CASE 
+			WHEN wait_type LIKE 'LCK%' THEN 'LOCKS' 
+			WHEN wait_type LIKE 'PAGEIO%' THEN 'PAGE I/O LATCH' 
+			WHEN wait_type LIKE 'PAGELATCH%' THEN 'PAGE LATCH (non-I/O)' 
+			WHEN wait_type LIKE 'LATCH%' THEN 'LATCH (non-buffer)' 
+			WHEN wait_type LIKE 'LATCH%' THEN 'LATCH (non-buffer)' 
+			ELSE wait_type 
+		END AS wait_category, 
+		wait_type, 
+		wait_time_ms, 
+		waiting_tasks_count, 
+		max_wait_time_ms 
+	FROM   
+		sys.dm_os_wait_stats WITH(NOLOCK)
+    WHERE  
+		wait_type NOT IN ( 
+			'LAZYWRITER_SLEEP', 'CLR_AUTO_EVENT', 'CLR_MANUAL_EVENT' ,
+			'REQUEST_FOR_DEADLOCK_SEARCH', 'BACKUPTHREAD', 'CHECKPOINT_QUEUE', 
+			'EXECSYNC', 'FFT_RECOVERY', 
+			'SNI_CRITICAL_SECTION', 'SOS_PHYS_PAGE_CACHE', 
+			'CXROWSET_SYNC', 'DAC_INIT', 'DIRTY_PAGE_POLL', 
+			'PWAIT_ALL_COMPONENTS_INITIALIZED', 'MSQL_XP', 'WAIT_FOR', 
+			'DBMIRRORING_CMD', 'DBMIRROR_DBM_EVENT', 'DBMIRROR_EVENTS_QUEUE', 
+			'DBMIRROR_WORKER_QUEUE', 'XE_TIMER_EVENT', 'XE_DISPATCHER_WAIT', 
+			'WAITFOR_TASKSHUTDOWN', 'WAIT_FOR_RESULTS', 
+			'SQLTRACE_INCREMENTAL_FLUSH_SLEEP', 'WAITFOR' ,'QDS_CLEANUP_STALE_QUERIES_TASK_MAIN_LOOP_SLEEP' ,
+			'QDS_PERSIST_TASK_MAIN_LOOP_SLEEP', 'HADR_FILESTREAM_IOMGR_IOCOMPLETION', 
+			'LOGMGR_QUEUE', 'FSAGENT' ) 
+		AND wait_type NOT LIKE 'PREEMPTIVE%' 
+		AND wait_type NOT LIKE 'SQLTRACE%' 
+		AND wait_type NOT LIKE 'SLEEP%' 
+		AND wait_type NOT LIKE 'FT_%' 
+		AND wait_type NOT LIKE 'XE%' 
+		AND wait_type NOT LIKE 'BROKER%' 
+		AND wait_type NOT LIKE 'DISPATCHER%' 
+		AND wait_type NOT LIKE 'PWAIT%' 
+		AND wait_type NOT LIKE 'SP_SERVER%'
+) 
+SELECT 
+		'waitstats' AS measurement,
+        @@SERVERNAME AS server_name,
+        COALESCE(SERVERPROPERTY('InstanceName'), 'MSSQLSERVER') AS sql_instance_name,
+        DB_NAME() AS database_name, 
+        wait_category, 
+        Sum(wait_time_ms)        AS wait_time_ms, 
+        Sum(waiting_tasks_count) AS waiting_tasks_count, 
+        Max(max_wait_time_ms)    AS max_wait_time_ms 
+FROM   waitcategorystats 
+WHERE  wait_time_ms > 1000 
+GROUP  BY wait_category  
+OPTION (RECOMPILE, MAXDOP 1);
+`
+
+/*************************************************************************/
+// tempdb
+type structTempdb struct {
+	Measurement                  string  `db:"measurement" type:"measurement"`
+	ServerName                   string  `db:"server_name" type:"tag"`
+	SQLInstanceName              string  `db:"sql_instance_name" type:"tag"`
+	DatabaseName                 string  `db:"database_name" type:"tag"`
+	FileName                     string  `db:"file_name" type:"tag"`
+	UnallocatedExtentPageMB      float64 `db:"unallocated_extent_page_mb" type:"field"`
+	VersionstoreReservedPageMB   float64 `db:"version_store_reserved_page_mb" type:"field"`
+	UserobjectReservedPageMB     float64 `db:"user_object_reserved_page_mb" type:"field"`
+	InternalObjectReservedPageMB float64 `db:"internal_object_reserved_page_mb" type:"field"`
+	MixedExtentPageMB            float64 `db:"mixed_extent_page_mb" type:"field"`
+}
+
+const queryTempdb = `
+SELECT
+	'tempdb' AS measurement,
+    @@SERVERNAME AS server_name,
+    COALESCE(SERVERPROPERTY('InstanceName'), 'MSSQLSERVER') AS sql_instance_name,
+    DB_NAME() AS database_name, 
+	FILE_NAME([file_id]) AS [file_name],
+	/*
+	[total_page_count] * 8 / 1024 AS total_page_mb,
+	[allocated_extent_page_count] * 8 / 1024 AS allocated_extent_page_mb,
+	[modified_extent_page_count] * 8 / 1024 AS modified_extent_page_mb,
+	*/
+	[unallocated_extent_page_count] * 8 / 1024 AS unallocated_extent_page_mb,
+	[version_store_reserved_page_count] * 8 / 1024 AS version_store_reserved_page_mb,
+	[user_object_reserved_page_count] * 8 / 1024 AS [user_object_reserved_page_mb],
+	[internal_object_reserved_page_count] * 8 / 1024 AS internal_object_reserved_page_mb,
+	[mixed_extent_page_count] * 8 / 1024 AS mixed_extent_page_mb
+FROM
+	[tempdb].[sys].[dm_db_file_space_usage] WITH(NOLOCK)
+OPTION (RECOMPILE, MAXDOP 1);
 `

@@ -12,6 +12,10 @@ import (
 
 func getMeasurement(sql *string, fields interface{}) {
 
+	// 構造体の名称 (処理対象) の取得
+	typeNameSlice := strings.Split(reflect.TypeOf(fields).String(), ".")
+	typeName := typeNameSlice[len(typeNameSlice)-1]
+
 	// クエリ実行
 	rows, err := db.Queryx(*sql)
 	if err != nil {
@@ -65,7 +69,7 @@ func getMeasurement(sql *string, fields interface{}) {
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {
-		fmt.Printf("[%v] : Response Status [%s]\n", time.Now().Format(timeFormat), resp.Status)
+		fmt.Printf("[%v] : [%s] : Response Status [%s]\n", time.Now().Format(timeFormat), typeName, resp.Status)
 	}
 	wg.Done()
 }
