@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/jmoiron/sqlx"
 )
@@ -21,36 +22,34 @@ var db *sqlx.DB
 var wg sync.WaitGroup
 var influxdbURI string
 var config *Zaiba2Config
-var applicationIntent string
+var sqlConfig tomlConfig
 
 // Zaiba2Config : Config 用構造体 (NewZaiba2Config により生成する)
 type Zaiba2Config struct {
-	server            *string
-	userID            *string
-	password          *string
-	database          *string
-	applicationintent *string
-	influxdbServer    *string
-	influxdbPort      *int
-	influxdbName      *string
-	applicationname   *string
-	azuresqldb        *bool
-	sleepinterval     *int
+	influxdbServer  *string
+	influxdbPort    *int
+	influxdbName    *string
+	applicationname *string
+	sleepinterval   *int
+}
+
+type structSQLConfig struct {
+	ServerName        string
+	UserID            string
+	Password          string
+	Database          string
+	ApplicationIntent string
+	AzureSQLDB        int
+}
+
+type tomlConfig struct {
+	Server structSQLConfig
 }
 
 // Newzaiba2Config : 実行時引数を元に Config を作成
 func Newzaiba2Config() *Zaiba2Config {
 	// 実行時引数の取得
 	config := new(Zaiba2Config)
-
-	// SQL Server 接続情報
-	config.server = flag.String("server", "localhost", "SQL Server Server Name")
-	config.userID = flag.String("userid", "", "Login User Name")
-	config.password = flag.String("password", "", "Login Password")
-	config.database = flag.String("database", "master", "Connect Database")
-
-	// SQL Server Application Intent (読み取りセカンダリへの接続に利用)
-	config.applicationintent = flag.String("applicationintent", "ReadWrite", "ApplicationIntent")
 
 	// 接続情報のアプリケーション名
 	config.applicationname = flag.String("applicationname", "MSSQL Monitor Zaiba2", "Connected Application Name")
@@ -59,9 +58,6 @@ func Newzaiba2Config() *Zaiba2Config {
 	config.influxdbServer = flag.String("influxdbServer", "localhost", "InfluxDb Server name")
 	config.influxdbPort = flag.Int("influxdbPort", 8086, "InfluxdDb Port Number")
 	config.influxdbName = flag.String("influxdbName", "zaiba2", "InfluxdDb DB Name")
-
-	// Azure SQL Database 向けのクエリ実行フラグ
-	config.azuresqldb = flag.Bool("azuresqldb", false, "Connect Azure SQL Database")
 
 	// 取得間隔
 	config.sleepinterval = flag.Int("sleepinterval", 5, "Metrics Collect interval")
@@ -83,19 +79,28 @@ func doMain() error {
 		cStop <- true
 	}()
 
-	// 接続文字列の作成
-	constring := fmt.Sprintf("server=%s;user id=%s;password=%s;database=%s;app name=%s",
-		*config.server,
-		*config.userID,
-		*config.password,
-		*config.database,
-		*config.applicationname,
-	)
-
+	// InfluxDB の接続用 URI
 	influxdbURI = fmt.Sprintf("http://%s:%d/write?db=%s",
 		*config.influxdbServer,
 		*config.influxdbPort,
 		*config.influxdbName,
+	)
+
+	// TOML から SQL Server の接続を情報を読み込み
+	_, err = toml.DecodeFile("zaiba2.config", &sqlConfig)
+
+	if sqlConfig.Server.ApplicationIntent == "" {
+		sqlConfig.Server.ApplicationIntent = "ReadWrite"
+	}
+
+	// 接続文字列の作成
+	constring := fmt.Sprintf("server=%s;user id=%s;password=%s;database=%s;app name=%s;ApplicationIntent=%s",
+		sqlConfig.Server.ServerName,
+		sqlConfig.Server.UserID,
+		sqlConfig.Server.Password,
+		sqlConfig.Server.Database,
+		*config.applicationname,
+		sqlConfig.Server.ApplicationIntent,
 	)
 
 	// SQL Server 用のドライバーで初期化
@@ -114,11 +119,10 @@ func doMain() error {
 	// メトリクス取得前の初期設定
 	query := queryList()
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	applicationIntent = "application_intent=" + (*config.applicationintent)
 
 	// メトリクスの取得開始
 	for {
-		fmt.Printf("[%v] : Metric Collect.\n", time.Now().Format(timeFormat))
+		// fmt.Printf("[%v] : Metric Collect.\n", time.Now().Format(timeFormat))
 		select {
 		// Ctrl + C が押された場合の終了処理
 		case <-cStop:
@@ -128,6 +132,7 @@ func doMain() error {
 		default:
 
 			wg.Add(len(query))
+
 			go getMeasurement(&query[0], new(structPerfInfo))
 			go getMeasurement(&query[1], new(structFileStats))
 			go getMeasurement(&query[2], new(structCPUUsage))

@@ -6,7 +6,7 @@ package main
 func queryList() []string {
 	var query []string
 	// Azure SQL DB 向けのクエリセット
-	if *config.azuresqldb == true {
+	if sqlConfig.Server.AzureSQLDB == 1 {
 		query = []string{
 			queryPerfInfo,
 			queryFileStats,
