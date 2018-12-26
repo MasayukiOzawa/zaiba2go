@@ -1,35 +1,29 @@
 package main
 
+type structQuery struct {
+	query    string
+	dataType interface{}
+}
+
 /*************************************************************************/
 // 実行対象のクエリ リストの作成
 /*************************************************************************/
-func queryList() []string {
-	var query []string
+func getQueryList() map[string]structQuery {
+	var mapQuery = make(map[string]structQuery)
+	mapQuery["PerfInfo"] = structQuery{queryPerfInfo, new(structPerfInfo)}
+	mapQuery["FileStats"] = structQuery{queryFileStats, new(structFileStats)}
+	mapQuery["CPUUsage"] = structQuery{queryCPUUsage, new(structCPUUsage)}
+	mapQuery["WaitTask"] = structQuery{queryWaitTask, new(structWaitTask)}
+	mapQuery["WaitStats"] = structQuery{queryWaitStats, new(structWaitStats)}
+	mapQuery["Tempdb"] = structQuery{queryTempdb, new(structTempdb)}
+
 	// Azure SQL DB 向けのクエリセット
 	if sqlConfig.Server.AzureSQLDB == 1 {
-		query = []string{
-			queryPerfInfo,
-			queryFileStats,
-			queryCPUUsage,
-			queryMemoryClerk,
-			queryWorkerThreadAzure,
-			queryWaitTask,
-			queryWaitStats,
-			queryTempdb,
-		}
+		mapQuery["WorkerThread"] = structQuery{queryWorkerThreadAzure, new(structWorkerThread)}
 	} else {
-		query = []string{
-			queryPerfInfo,
-			queryFileStats,
-			queryCPUUsage,
-			queryMemoryClerk,
-			queryWorkerThread,
-			queryWaitTask,
-			queryWaitStats,
-			queryTempdb,
-		}
+		mapQuery["WorkerThread"] = structQuery{queryWorkerThread, new(structWorkerThread)}
 	}
-	return query
+	return mapQuery
 }
 
 /*************************************************************************/

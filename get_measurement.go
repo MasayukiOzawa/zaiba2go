@@ -10,13 +10,13 @@ import (
 	"time"
 )
 
-func getMeasurement(sql *string, fields interface{}) {
+func getMeasurement(sql string, fields interface{}) {
 	// 構造体の名称 (処理対象) の取得
 	typeNameSlice := strings.Split(reflect.TypeOf(fields).String(), ".")
 	typeName := typeNameSlice[len(typeNameSlice)-1]
 
 	// クエリ実行
-	rows, err := db.Queryx(*sql)
+	rows, err := db.Queryx(sql)
 	if err != nil {
 		fmt.Println(fmt.Sprintf("[%v] : [%s] : SQL Execution Error : %s\n", time.Now().Format(timeFormat), typeName, err.Error()))
 		wg.Done()
@@ -69,6 +69,7 @@ func getMeasurement(sql *string, fields interface{}) {
 		fmt.Printf("[%v] : [%s] : Post Failed [%s]\n", time.Now().Format(timeFormat), typeName, err.Error())
 	} else if resp.StatusCode != 204 {
 		fmt.Printf("[%v] : [%s] : HTTP Request Failed, Response Status [%s]\n", time.Now().Format(timeFormat), typeName, resp.Status)
+		fmt.Println(string(buf))
 	}
 	wg.Done()
 }

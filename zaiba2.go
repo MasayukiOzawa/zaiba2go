@@ -18,11 +18,13 @@ import (
 
 const timeFormat = "2006-01-02 15:04:05.000"
 
-var db *sqlx.DB
-var wg sync.WaitGroup
-var influxdbURI string
-var config *Zaiba2Config
-var sqlConfig tomlConfig
+var (
+	db          *sqlx.DB
+	wg          sync.WaitGroup
+	influxdbURI string
+	config      *Zaiba2Config
+	sqlConfig   tomlConfig
+)
 
 // Zaiba2Config : Config 用構造体 (NewZaiba2Config により生成する)
 type Zaiba2Config struct {
@@ -117,7 +119,7 @@ func doMain() error {
 	}
 
 	// メトリクス取得前の初期設定
-	query := queryList()
+	mapQuery := getQueryList()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	// メトリクスの取得開始
@@ -130,17 +132,12 @@ func doMain() error {
 			wg.Wait()
 			return nil
 		default:
+			wg.Add(len(mapQuery))
 
-			wg.Add(len(query))
-
-			go getMeasurement(&query[0], new(structPerfInfo))
-			go getMeasurement(&query[1], new(structFileStats))
-			go getMeasurement(&query[2], new(structCPUUsage))
-			go getMeasurement(&query[3], new(structMemoryClerk))
-			go getMeasurement(&query[4], new(structWorkerThread))
-			go getMeasurement(&query[5], new(structWaitTask))
-			go getMeasurement(&query[6], new(structWaitStats))
-			go getMeasurement(&query[7], new(structTempdb))
+			for s := range mapQuery {
+				// fmt.Println(s)
+				go getMeasurement(mapQuery[s].query, mapQuery[s].dataType)
+			}
 
 			wg.Wait()
 
