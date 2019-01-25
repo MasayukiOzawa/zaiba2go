@@ -16,6 +16,7 @@ func getQueryList() map[string]structQuery {
 	mapQuery["WaitTask"] = structQuery{queryWaitTask, new(structWaitTask)}
 	mapQuery["WaitStats"] = structQuery{queryWaitStats, new(structWaitStats)}
 	mapQuery["Tempdb"] = structQuery{queryTempdb, new(structTempdb)}
+	mapQuery["MemoryClerk"] = structQuery{queryMemoryClerk, new(structMemoryClerk)}
 
 	// Azure SQL DB 向けのクエリセット
 	if sqlConfig.Server.AzureSQLDB == 1 {
