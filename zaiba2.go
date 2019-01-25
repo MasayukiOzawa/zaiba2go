@@ -69,7 +69,11 @@ func Newzaiba2Config() *Zaiba2Config {
 }
 
 func doMain() error {
-	var err error
+	var (
+		err       error
+		constring string
+	)
+
 	config = Newzaiba2Config()
 
 	// Ctrl + C で終了した場合の制御用チャネルの設定
@@ -89,21 +93,34 @@ func doMain() error {
 	)
 
 	// TOML から SQL Server の接続を情報を読み込み
-	_, err = toml.DecodeFile("zaiba2.config", &sqlConfig)
+	if _, err = toml.DecodeFile("zaiba2.config", &sqlConfig); err != nil {
+		return fmt.Errorf("Config Read Error : %s", err.Error())
+	}
 
 	if sqlConfig.Server.ApplicationIntent == "" {
 		sqlConfig.Server.ApplicationIntent = "ReadWrite"
 	}
 
 	// 接続文字列の作成
-	constring := fmt.Sprintf("server=%s;user id=%s;password=%s;database=%s;app name=%s;ApplicationIntent=%s",
-		sqlConfig.Server.ServerName,
-		sqlConfig.Server.UserID,
-		sqlConfig.Server.Password,
-		sqlConfig.Server.Database,
-		*config.applicationname,
-		sqlConfig.Server.ApplicationIntent,
-	)
+	// パスワードが省略されている場合は、Windows 認証とする
+	if sqlConfig.Server.Password == "" {
+		constring = fmt.Sprintf("server=%s;user id=%s;database=%s;app name=%s;ApplicationIntent=%s",
+			sqlConfig.Server.ServerName,
+			sqlConfig.Server.UserID,
+			sqlConfig.Server.Database,
+			*config.applicationname,
+			sqlConfig.Server.ApplicationIntent,
+		)
+	} else {
+		constring = fmt.Sprintf("server=%s;user id=%s;password=%s;database=%s;app name=%s;ApplicationIntent=%s",
+			sqlConfig.Server.ServerName,
+			sqlConfig.Server.UserID,
+			sqlConfig.Server.Password,
+			sqlConfig.Server.Database,
+			*config.applicationname,
+			sqlConfig.Server.ApplicationIntent,
+		)
+	}
 
 	// SQL Server 用のドライバーで初期化
 	db, err = sqlx.Open("sqlserver", constring)

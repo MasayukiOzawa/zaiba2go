@@ -54,7 +54,7 @@ func getMeasurement(sql string, fields interface{}) {
 		}
 		buf = append(buf, fmt.Sprintf("%s,%s,%s %s %d\n",
 			measurement,
-			"ApplicationIntent="+sqlConfig.Server.ApplicationIntent,
+			"application_intent="+sqlConfig.Server.ApplicationIntent,
 			string(tagValue),
 			string(fieldValue),
 			time.Now().UnixNano(),
