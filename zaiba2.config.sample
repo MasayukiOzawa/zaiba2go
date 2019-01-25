@@ -1,0 +1,6 @@
+[Server]
+servername = "localhost"
+userid = "SQL Server Login User"
+password = "SQL Server Login Password"
+database = "Connect Database"
+azuresqldb = 0
