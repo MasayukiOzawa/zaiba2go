@@ -127,6 +127,8 @@ func doMain() error {
 	if err != nil {
 		return fmt.Errorf("SQL Open Error : %s", err.Error())
 	}
+	// デフォルトのアイドルカウントは 2 となっており、コネクションプールの利用が 2 となるため、MaxIdleConns を調整
+	db.SetMaxIdleConns(100)
 	defer db.Close()
 
 	// SQL Server への接続確認
