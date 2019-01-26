@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"syscall"
@@ -93,7 +94,8 @@ func doMain() error {
 	)
 
 	// TOML から SQL Server の接続を情報を読み込み
-	if _, err = toml.DecodeFile("zaiba2.config", &sqlConfig); err != nil {
+	configPath, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+	if _, err = toml.DecodeFile(configPath+"zaiba2.config", &sqlConfig); err != nil {
 		return fmt.Errorf("Config Read Error : %s", err.Error())
 	}
 
