@@ -95,7 +95,7 @@ func doMain() error {
 
 	// TOML から SQL Server の接続を情報を読み込み
 	configPath, _ := filepath.Abs(filepath.Dir(os.Args[0]))
-	if _, err = toml.DecodeFile(configPath+"zaiba2.config", &sqlConfig); err != nil {
+	if _, err = toml.DecodeFile(filepath.Join(configPath, "zaiba2.config"), &sqlConfig); err != nil {
 		return fmt.Errorf("Config Read Error : %s", err.Error())
 	}
 
